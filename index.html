@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion Eau SONEB - 2 Bâtiments (13 Portes)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- jsPDF pour la génération de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Web App Manifest for PWA -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkdlc3Rpb24gRWF1IFNPTkVCIiwKICAic2hvcnRfbmFtZSI6ICJFYXUyQmF0aW1lbnRzIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmM2Y0ZjYiLAogICJ0aGVtZV9jb2xvciI6ICIjMDI4NGM3Igp9">
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 font-sans pb-16">
+
+    <!-- En-tête / Header -->
+    <header class="bg-gradient-to-r from-sky-700 via-indigo-800 to-slate-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-white/10 rounded-xl backdrop-blur-md">
+                    <i class="fa-solid fa-faucet-drip text-2xl text-sky-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">Gestion Eau SONEB</h1>
+                    <p class="text-xs text-sky-200">2 Bâtiments (7 Portes + 6 Portes) — Majoration 5%</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="sauvegarderVersDrive()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow transition">
+                    <i class="fa-solid fa-cloud-arrow-up"></i> Sauvegarder (Drive)
+                </button>
+                <label class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow transition">
+                    <i class="fa-solid fa-cloud-arrow-down"></i> Charger (Drive)
+                    <input type="file" id="importDriveFile" accept=".json" class="hidden" onchange="chargerDepuisDrive(event)">
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 mt-6 space-y-6">
+
+        <!-- Section 1 : Informations Facture SONEB & Compteur Mère -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar text-sky-600"></i>
+                    Facture SONEB & Compteur Mère
+                </h2>
+                <span class="text-xs font-medium px-2.5 py-1 bg-sky-50 text-sky-700 rounded-full border border-sky-100">
+                    Calcul automatique
+                </span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Montant Facture SONEB (FCFA)</label>
+                    <div class="relative">
+                        <input type="number" id="montantFacture" value="45000" min="0" oninput="calculerTout()"
+                            class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-3 pr-12 py-2 text-sm font-bold text-slate-900 focus:ring-2 focus:ring-sky-500 focus:bg-white outline-none">
+                        <span class="absolute right-3 top-2.5 text-xs font-bold text-slate-400">FCFA</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Ancien Index Mère (m³)</label>
+                    <input type="number" id="ancienIndexMere" value="0" min="0" readonly
+                        class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 outline-none cursor-not-allowed"
+                        title="Somme automatique des anciens index des 13 portes">
+                    <p class="text-[10px] text-slate-400 mt-1">Somme auto des 13 portes</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nouvel Index Mère (m³)</label>
+                    <input type="number" id="nouvelIndexMere" value="0" min="0" readonly
+                        class="w-full bg-slate-100 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 outline-none cursor-not-allowed"
+                        title="Somme automatique des nouveaux index des 13 portes">
+                    <p class="text-[10px] text-slate-400 mt-1">Somme auto des 13 portes</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Consommation Mère Totale</label>
+                    <div id="volumeMereAffichage" class="w-full bg-sky-50 border border-sky-200 text-sky-800 font-extrabold text-base rounded-xl px-3 py-2 flex items-center justify-between">
+                        <span>0 m³</span>
+                        <i class="fa-solid fa-cubes text-sky-400"></i>
+                    </div>
+                    <p class="text-[10px] text-sky-600 mt-1" id="prixM3Affichage">Prix m³ : 0 FCFA</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- BÂTIMENT 1 (Portes 1 à 7) -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 bg-slate-800 text-white flex justify-between items-center">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-building text-sky-400"></i>
+                    Bâtiment 1 (7 Portes : N°1 à N°7)
+                </h2>
+                <span class="text-xs bg-sky-600 px-2.5 py-1 rounded-full font-semibold" id="totalBatiment1Vol">0 m³</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[750px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-4">Porte</th>
+                            <th class="py-3 px-4">Locataire</th>
+                            <th class="py-3 px-4 w-32">Ancien Index</th>
+                            <th class="py-3 px-4 w-32">Nouvel Index</th>
+                            <th class="py-3 px-4 text-center">Conso. (m³)</th>
+                            <th class="py-3 px-4 text-right">Montant Réel</th>
+                            <th class="py-3 px-4 text-right bg-indigo-50/50 text-indigo-900">Total + 5%</th>
+                            <th class="py-3 px-4 text-center">Statut</th>
+                            <th class="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBatiment1Body" class="divide-y divide-slate-100 text-sm">
+                        <!-- Généré en JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- BÂTIMENT 2 (Portes 1 à 6) -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+            <div class="p-4 bg-indigo-900 text-white flex justify-between items-center">
+                <h2 class="text-base font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-building text-indigo-300"></i>
+                    Bâtiment 2 (6 Portes : N°1 à N°6)
+                </h2>
+                <span class="text-xs bg-indigo-600 px-2.5 py-1 rounded-full font-semibold" id="totalBatiment2Vol">0 m³</span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[750px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-4">Porte</th>
+                            <th class="py-3 px-4">Locataire</th>
+                            <th class="py-3 px-4 w-32">Ancien Index</th>
+                            <th class="py-3 px-4 w-32">Nouvel Index</th>
+                            <th class="py-3 px-4 text-center">Conso. (m³)</th>
+                            <th class="py-3 px-4 text-right">Montant Réel</th>
+                            <th class="py-3 px-4 text-right bg-indigo-50/50 text-indigo-900">Total + 5%</th>
+                            <th class="py-3 px-4 text-center">Statut</th>
+                            <th class="py-3 px-4 text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBatiment2Body" class="divide-y divide-slate-100 text-sm">
+                        <!-- Généré en JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Récapitulatif Global -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center gap-4">
+                <div class="p-3 bg-sky-100 text-sky-700 rounded-xl">
+                    <i class="fa-solid fa-droplet text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">Consommation Totale (13 Portes)</p>
+                    <p id="totalVolumePortes" class="text-xl font-bold text-slate-800">0 m³</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center gap-4">
+                <div class="p-3 bg-emerald-100 text-emerald-700 rounded-xl">
+                    <i class="fa-solid fa-hand-holding-dollar text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">Total Factures Locataires (+5%)</p>
+                    <p id="totalMontantApercu" class="text-xl font-bold text-emerald-700">0 FCFA</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center gap-4">
+                <div class="p-3 bg-amber-100 text-amber-700 rounded-xl">
+                    <i class="fa-solid fa-gas-pump text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 font-medium">Frais Déplacement Gestionnaire (5%)</p>
+                    <p id="totalFraisGestionnaire" class="text-xl font-bold text-amber-700">0 FCFA</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Reçu WhatsApp -->
+    <div id="modalRecu" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-receipt text-sky-600"></i> Reçu WhatsApp
+                </h3>
+                <button onclick="fermerModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div id="contenuRecu" class="bg-slate-50 p-4 rounded-xl font-mono text-xs text-slate-700 whitespace-pre-wrap border border-slate-200 leading-relaxed">
+                <!-- Texte du reçu -->
+            </div>
+
+            <div class="flex gap-2">
+                <button id="btnWhatsApp" onclick="envoyerWhatsApp()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow transition">
+                    <i class="fa-brands fa-whatsapp text-base"></i> Envoyer
+                </button>
+                <button onclick="copierTexteRecu()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-4 py-2.5 rounded-xl text-xs transition">
+                    <i class="fa-solid fa-copy"></i> Copier
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Logic Script -->
+    <script>
+        // Structure des données
+        let batiment1 = Array.from({ length: 7 }, (_, i) => ({
+            id: i + 1,
+            batiment: 'Bâtiment 1',
+            locataire: `Locataire Porte ${i + 1}`,
+            ancienIndex: 0,
+            nouvelIndex: 0,
+            consommation: 0,
+            montantReel: 0,
+            montantMajore: 0,
+            paye: false
+        }));
+
+        let batiment2 = Array.from({ length: 6 }, (_, i) => ({
+            id: i + 1,
+            batiment: 'Bâtiment 2',
+            locataire: `Locataire Porte ${i + 1}`,
+            ancienIndex: 0,
+            nouvelIndex: 0,
+            consommation: 0,
+            montantReel: 0,
+            montantMajore: 0,
+            paye: false
+        }));
+
+        let recuTexteActuel = '';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            restaurerDonneesLocales();
+            genererTableaux();
+            calculerTout();
+        });
+
+        function genererTableaux() {
+            renderTable('tableBatiment1Body', batiment1, 1);
+            renderTable('tableBatiment2Body', batiment2, 2);
+        }
+
+        function renderTable(elementId, list, batimentNum) {
+            const tbody = document.getElementById(elementId);
+            tbody.innerHTML = '';
+
+            list.forEach((p, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = p.paye ? 'bg-emerald-50/40 hover:bg-emerald-50/70' : 'hover:bg-slate-50/80';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-bold text-slate-700">
+                        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold">P${p.id}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <input type="text" value="${p.locataire}" onchange="mettreAJourPorte(${batimentNum}, ${idx}, 'locataire', this.value)"
+                            class="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-sky-500 font-medium text-slate-800 outline-none text-xs py-0.5">
+                    </td>
+                    <td class="py-3 px-4">
+                        <input type="number" value="${p.ancienIndex}" min="0" oninput="mettreAJourPorte(${batimentNum}, ${idx}, 'ancienIndex', this.value)"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold focus:ring-1 focus:ring-sky-500 outline-none">
+                    </td>
+                    <td class="py-3 px-4">
+                        <input type="number" value="${p.nouvelIndex}" min="0" oninput="mettreAJourPorte(${batimentNum}, ${idx}, 'nouvelIndex', this.value)"
+                            class="w-full bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-semibold focus:ring-1 focus:ring-sky-500 outline-none">
+                    </td>
+                    <td class="py-3 px-4 text-center font-bold text-sky-700">
+                        ${p.consommation} m³
+                    </td>
+                    <td class="py-3 px-4 text-right text-slate-600 font-medium">
+                        ${Math.round(p.montantReel).toLocaleString()} FCFA
+                    </td>
+                    <td class="py-3 px-4 text-right font-bold text-indigo-950 bg-indigo-50/30">
+                        ${Math.round(p.montantMajore).toLocaleString()} FCFA
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="togglePaye(${batimentNum}, ${idx})" class="px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+                            p.paye 
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                            : 'bg-amber-100 text-amber-800 border-amber-300'
+                        }">
+                            ${p.paye ? '<i class="fa-solid fa-check"></i> Payé' : '<i class="fa-solid fa-clock"></i> Impayé'}
+                        </button>
+                    </td>
+                    <td class="py-3 px-4 text-center">
+                        <div class="flex items-center justify-center gap-1">
+                            <button onclick="telechargerPDF(${batimentNum}, ${idx})" title="Télécharger Facture PDF" class="p-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 rounded-lg text-xs font-semibold transition">
+                                <i class="fa-solid fa-file-pdf"></i> PDF
+                            </button>
+                            <button onclick="ouvrirModalRecu(${batimentNum}, ${idx})" title="Reçu WhatsApp" class="p-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-xs font-medium transition">
+                                <i class="fa-brands fa-whatsapp"></i>
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function mettreAJourPorte(batimentNum, index, champ, valeur) {
+            const list = batimentNum === 1 ? batiment1 : batiment2;
+            if (champ === 'locataire') {
+                list[index].locataire = valeur;
+            } else {
+                list[index][champ] = parseFloat(valeur) || 0;
+            }
+            calculerTout();
+        }
+
+        function togglePaye(batimentNum, index) {
+            const list = batimentNum === 1 ? batiment1 : batiment2;
+            list[index].paye = !list[index].paye;
+            sauvegarderLocalement();
+            genererTableaux();
+        }
+
+        function calculerTout() {
+            let sommeAnciensIndex = 0;
+            let sommeNouveauxIndex = 0;
+
+            let volBat1 = 0;
+            let volBat2 = 0;
+
+            batiment1.forEach(p => {
+                p.consommation = Math.max(0, p.nouvelIndex - p.ancienIndex);
+                sommeAnciensIndex += p.ancienIndex;
+                sommeNouveauxIndex += p.nouvelIndex;
+                volBat1 += p.consommation;
+            });
+
+            batiment2.forEach(p => {
+                p.consommation = Math.max(0, p.nouvelIndex - p.ancienIndex);
+                sommeAnciensIndex += p.ancienIndex;
+                sommeNouveauxIndex += p.nouvelIndex;
+                volBat2 += p.consommation;
+            });
+
+            // Mettre à jour les champs de l'index mère
+            document.getElementById('ancienIndexMere').value = sommeAnciensIndex;
+            document.getElementById('nouvelIndexMere').value = sommeNouveauxIndex;
+
+            const volumeMere = Math.max(0, sommeNouveauxIndex - sommeAnciensIndex);
+            document.getElementById('volumeMereAffichage').querySelector('span').innerText = `${volumeMere} m³`;
+
+            const montantFacture = parseFloat(document.getElementById('montantFacture').value) || 0;
+            const prixM3 = volumeMere > 0 ? (montantFacture / volumeMere) : 0;
+
+            document.getElementById('prixM3Affichage').innerText = `Prix m³ : ${Math.round(prixM3)} FCFA`;
+
+            let totalVolumeSum = 0;
+            let totalMontantMajoreSum = 0;
+
+            const toutAppartements = [...batiment1, ...batiment2];
+            toutAppartements.forEach(p => {
+                p.montantReel = p.consommation * prixM3;
+                p.montantMajore = p.montantReel * 1.05;
+
+                totalVolumeSum += p.consommation;
+                totalMontantMajoreSum += p.montantMajore;
+            });
+
+            const totalFraisGestion = totalMontantMajoreSum - montantFacture;
+
+            document.getElementById('totalBatiment1Vol').innerText = `Total : ${volBat1} m³`;
+            document.getElementById('totalBatiment2Vol').innerText = `Total : ${volBat2} m³`;
+
+            document.getElementById('totalVolumePortes').innerText = `${totalVolumeSum} m³`;
+            document.getElementById('totalMontantApercu').innerText = `${Math.round(totalMontantMajoreSum).toLocaleString()} FCFA`;
+            document.getElementById('totalFraisGestionnaire').innerText = `${Math.round(Math.max(0, totalFraisGestion)).toLocaleString()} FCFA`;
+
+            sauvegarderLocalement();
+            genererTableaux();
+        }
+
+        // Génération de la facture PDF avec jsPDF
+        function telechargerPDF(batimentNum, index) {
+            const p = batimentNum === 1 ? batiment1[index] : batiment2[index];
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // En-tête
+            doc.setFillColor(2, 132, 199); // Sky blue
+            doc.rect(0, 0, 210, 35, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.text("FACTURE D'EAU - SONEB", 15, 20);
+            
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Immeuble Locatif — ${p.batiment}`, 15, 28);
+
+            // Date
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 150, 28);
+
+            // Cadre d'information
+            doc.setDrawColor(220, 220, 220);
+            doc.roundedRect(15, 45, 180, 35, 3, 3);
+
+            doc.setTextColor(50, 50, 50);
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Désignation : Porte N° ${p.id} (${p.batiment})`, 20, 55);
+            doc.text(`Locataire : ${p.locataire}`, 20, 65);
+            doc.text(`Statut de Paiement : ${p.paye ? 'PAYÉ' : 'IMPAYÉ'}`, 20, 73);
+
+            // Relevés
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("Détails des Relevés du Décompteur", 15, 95);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Ancien Index : ${p.ancienIndex} m³`, 20, 105);
+            doc.text(`Nouvel Index : ${p.nouvelIndex} m³`, 20, 113);
+            doc.setFont("helvetica", "bold");
+            doc.text(`Consommation d'eau : ${p.consommation} m³`, 20, 123);
+
+            // Décompte Financier
+            doc.setFontSize(12);
+            doc.text("Décompte de la Facture", 15, 140);
+
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Montant réel consommation : ${Math.round(p.montantReel).toLocaleString()} FCFA`, 20, 150);
+            doc.text(`Frais de déplacement gestionnaire (5%) : ${Math.round(p.montantMajore - p.montantReel).toLocaleString()} FCFA`, 20, 158);
+
+            // Total
+            doc.setFillColor(240, 245, 255);
+            doc.rect(15, 170, 180, 20, 'F');
+            doc.setFontSize(14);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(2, 132, 199);
+            doc.text(`NET À PAYER : ${Math.round(p.montantMajore).toLocaleString()} FCFA`, 20, 183);
+
+            // Signature
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "italic");
+            doc.setTextColor(120, 120, 120);
+            doc.text("Facture générée automatiquement par l'Application de Gestion d'Eau.", 15, 210);
+            doc.text("Signature du Gestionnaire : _______________________", 120, 225);
+
+            // Sauvegarder le fichier
+            doc.save(`Facture_Eau_${p.batiment.replace(' ', '_')}_Porte_${p.id}.pdf`);
+        }
+
+        // WhatsApp Modal
+        function ouvrirModalRecu(batimentNum, index) {
+            const p = batimentNum === 1 ? batiment1[index] : batiment2[index];
+            recuTexteActuel = 
+`💧 *FACTURE D'EAU - ${p.batiment.toUpperCase()} (PORTE ${p.id})* 💧
+----------------------------------
+👤 *Locataire :* ${p.locataire}
+📊 *Ancien Index :* ${p.ancienIndex} m³
+📈 *Nouvel Index :* ${p.nouvelIndex} m³
+💧 *Consommation :* ${p.consommation} m³
+
+💰 *Montant Réel Eau :* ${Math.round(p.montantReel).toLocaleString()} FCFA
+🛵 *Frais de Gestion (5%) :* ${Math.round(p.montantMajore - p.montantReel).toLocaleString()} FCFA
+----------------------------------
+👉 *TOTAL À PAYER : ${Math.round(p.montantMajore).toLocaleString()} FCFA*
+----------------------------------
+Statut : ${p.paye ? '✅ PAYÉ' : '❌ IMPAYÉ'}`;
+
+            document.getElementById('contenuRecu').innerText = recuTexteActuel;
+            document.getElementById('modalRecu').classList.remove('hidden');
+        }
+
+        function fermerModal() {
+            document.getElementById('modalRecu').classList.add('hidden');
+        }
+
+        function envoyerWhatsApp() {
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(recuTexteActuel)}`, '_blank');
+        }
+
+        function copierTexteRecu() {
+            navigator.clipboard.writeText(recuTexteActuel);
+            alert("Reçu copié !");
+        }
+
+        // LocalStorage & Drive
+        function sauvegarderLocalement() {
+            const payload = {
+                montantFacture: document.getElementById('montantFacture').value,
+                batiment1,
+                batiment2
+            };
+            localStorage.setItem('soneb_2batiments_data', JSON.stringify(payload));
+        }
+
+        function restaurerDonneesLocales() {
+            const saved = localStorage.getItem('soneb_2batiments_data');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    document.getElementById('montantFacture').value = parsed.montantFacture || 45000;
+                    if (parsed.batiment1) batiment1 = parsed.batiment1;
+                    if (parsed.batiment2) batiment2 = parsed.batiment2;
+                } catch (e) {
+                    console.error("Erreur lecture cache", e);
+                }
+            }
+        }
+
+        function sauvegarderVersDrive() {
+            const dataToSave = {
+                dateExport: new Date().toLocaleDateString('fr-FR'),
+                montantFacture: document.getElementById('montantFacture').value,
+                batiment1,
+                batiment2
+            };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToSave, null, 2));
+            const a = document.createElement('a');
+            a.href = dataStr;
+            a.download = `Facture_Eau_2Batiments_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        }
+
+        function chargerDepuisDrive(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported.montantFacture) document.getElementById('montantFacture').value = imported.montantFacture;
+                    if (imported.batiment1) batiment1 = imported.batiment1;
+                    if (imported.batiment2) batiment2 = imported.batiment2;
+                    calculerTout();
+                    alert("Données importées avec succès !");
+                } catch (err) {
+                    alert("Fichier non valide.");
+                }
+            };
+            reader.readAsText(file);
+        }
+    </script>
+</body>
+</html>
